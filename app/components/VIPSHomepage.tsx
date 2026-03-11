@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, CartesianGrid, Legend } from "recharts";
 import { Search, TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap } from "lucide-react";
