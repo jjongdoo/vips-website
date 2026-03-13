@@ -1,8 +1,13 @@
 // @ts-nocheck
 import { supabase } from '../../lib/supabase';
+import { adminLogin, getSession, getApprovedAlumni, getAlumniApplications } from '../../lib/supabase';
+import AlumniApplicationForm from './AlumniApplicationForm';
+import AdminPanel from './AdminPanel';
+import FundDashboard from './FundDashboard';
+import { fetchDailyPerformance, calculateMetrics } from '../../lib/googleSheets';
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, CartesianGrid, Legend } from "recharts";
-import { Search, TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap } from "lucide-react";
+import { Search, TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap, LogIn, Shield } from "lucide-react";
 
 // --- i18n ---
 const texts = {
@@ -196,6 +201,17 @@ const C = {
   heroBg: "linear-gradient(135deg, #1a2a5e 0%, #2c4ea3 50%, #4a7ae5 100%)",
 };
 
+// AdminPanel과 AlumniApplicationForm에 전달할 colors 매핑
+const colorsForModals = {
+  primary: C.blue,
+  bg: C.bg,
+  cardBg: C.card,
+  text: C.textPrimary,
+  textSecondary: C.textSecondary,
+  border: C.border,
+  accent: C.lightBlue,
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -220,34 +236,131 @@ export default function VIPSHomepage() {
   const [animateIn, setAnimateIn] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterCategory, setFilterCategory] = useState("전체");
-const [dbResearch, setDbResearch] = useState([]);
+  const [dbResearch, setDbResearch] = useState([]);
 
-useEffect(() => {
-  const fetchResearch = async () => {
-    const { data } = await supabase
-      .from('research')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (data && data.length > 0) {
-      setDbResearch(data.map(item => ({
-        id: item.id,
-        title: { ko: item.title, en: item.title },
-        author: item.author,
-        date: item.date,
-        category: { ko: item.sector?.replace('IT/Semiconductor', 'IT/반도체').replace('Automotive', '자동차').replace('Internet/Platform', '인터넷/플랫폼').replace('Finance', '금융').replace('Bio/Healthcare', '바이오/헬스케어') || 'IT/반도체', en: item.sector || 'IT/Semiconductor' },
-        rating: item.rating || 'BUY',
-        target: item.target_price || '',
-        summary: { ko: item.summary || '', en: item.summary || '' },
-        pdf_url: item.pdf_url || '',
-      })));
-    }
-  };
-  fetchResearch();
-}, []);
+  // ===== 관리자 로그인 상태 =====
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // ===== 관리자 패널 =====
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+
+  // ===== Alumni 신청 폼 =====
+  const [showAlumniForm, setShowAlumniForm] = useState(false);
+
+  // ===== Alumni DB 데이터 =====
+  const [approvedAlumni, setApprovedAlumni] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // ===== 구글 시트 펀드 데이터 (홈 탭용) =====
+  const [liveMetrics, setLiveMetrics] = useState(null);
+
+  // 리서치 DB 로드
+  useEffect(() => {
+    const fetchResearch = async () => {
+      const { data } = await supabase
+        .from('research')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        setDbResearch(data.map(item => ({
+          id: item.id,
+          title: { ko: item.title, en: item.title },
+          author: item.author,
+          date: item.date,
+          category: { ko: item.sector?.replace('IT/Semiconductor', 'IT/반도체').replace('Automotive', '자동차').replace('Internet/Platform', '인터넷/플랫폼').replace('Finance', '금융').replace('Bio/Healthcare', '바이오/헬스케어') || 'IT/반도체', en: item.sector || 'IT/Semiconductor' },
+          rating: item.rating || 'BUY',
+          target: item.target_price || '',
+          summary: { ko: item.summary || '', en: item.summary || '' },
+          pdf_url: item.pdf_url || '',
+        })));
+      }
+    };
+    fetchResearch();
+  }, []);
+
+  // ===== 관리자 세션 확인 (페이지 로드 시) =====
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const session = await getSession();
+        if (session) {
+          setIsAdmin(true);
+          const pending = await getAlumniApplications('pending');
+          setPendingCount(pending?.length || 0);
+        }
+      } catch (err) {
+        console.error('Session check failed:', err);
+      }
+    };
+    checkSession();
+  }, []);
+
+  // ===== 승인된 Alumni 로드 =====
+  useEffect(() => {
+    const loadAlumni = async () => {
+      try {
+        const data = await getApprovedAlumni();
+        if (data && data.length > 0) {
+          setApprovedAlumni(data);
+        }
+      } catch (err) {
+        console.error('Failed to load alumni:', err);
+      }
+    };
+    loadAlumni();
+  }, []);
+
+  // ===== 구글 시트 펀드 데이터 로드 (홈 탭용) =====
+  useEffect(() => {
+    const loadFundData = async () => {
+      try {
+        const dailyData = await fetchDailyPerformance();
+        console.log('📊 Fund data loaded:', dailyData?.length, 'rows');
+        if (dailyData && dailyData.length >= 1) {
+          const metrics = calculateMetrics(dailyData);
+          console.log('📊 Metrics:', metrics);
+          setLiveMetrics(metrics);
+        }
+      } catch (err) {
+        console.error('Failed to load fund data:', err);
+      }
+    };
+    loadFundData();
+  }, []);
+
   const t = texts[lang];
 
   useEffect(() => { setTimeout(() => setAnimateIn(true), 100); }, []);
   useEffect(() => { setAnimateIn(false); setTimeout(() => setAnimateIn(true), 50); }, [activeTab]);
+
+  // ===== 관리자 로그인/로그아웃 =====
+  const handleAdminLogin = async () => {
+    setLoginLoading(true);
+    setLoginError('');
+    try {
+      await adminLogin(loginEmail, loginPassword);
+      setIsAdmin(true);
+      setShowLoginModal(false);
+      setLoginEmail('');
+      setLoginPassword('');
+      const pending = await getAlumniApplications('pending');
+      setPendingCount(pending?.length || 0);
+    } catch (err) {
+      setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    setPendingCount(0);
+  };
 
   const filteredStocks = stockSearchData.filter(
     (s) => s.name[lang].toLowerCase().includes(searchQuery.toLowerCase()) || s.code.includes(searchQuery)
@@ -261,9 +374,10 @@ useEffect(() => {
   const filteredReports = (filterCategory === "전체" || filterCategory === "All")
     ? activeResearch
     : activeResearch.filter(r => r.category[lang] === filterCategory);
-  const latestVIPS = fundPerformance[fundPerformance.length - 1].vips;
-  const latestKOSPI = fundPerformance[fundPerformance.length - 1].kospi;
-  const alpha = (latestVIPS - latestKOSPI).toFixed(1);
+  const latestVIPS = liveMetrics ? liveMetrics.vipsReturn : fundPerformance[fundPerformance.length - 1].vips;
+  const latestKOSPI = liveMetrics ? liveMetrics.kospiReturn : fundPerformance[fundPerformance.length - 1].kospi;
+  const alpha = liveMetrics ? liveMetrics.alpha.toFixed(1) : (latestVIPS - latestKOSPI).toFixed(1);
+  const homeChartData = liveMetrics && liveMetrics.chartData.length > 0 ? liveMetrics.chartData : fundPerformance;
 
   const navItems = [
     { id: "home", label: t.nav.home, icon: <Star size={15} /> },
@@ -356,6 +470,44 @@ useEffect(() => {
                 </button>
               ))}
             </div>
+
+            {/* ===== 관리자 로그인/버튼 ===== */}
+            {!isAdmin ? (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                style={{
+                  background: 'none', border: 'none', color: C.textMuted,
+                  cursor: 'pointer', padding: '6px', marginLeft: 6, opacity: 0.4,
+                }}
+                title="관리자 로그인"
+              >
+                <LogIn size={16} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAdminPanel(true)}
+                style={{
+                  padding: '6px 14px', marginLeft: 8,
+                  backgroundColor: `${C.blue}15`,
+                  color: C.blue,
+                  border: `1px solid ${C.blue}33`,
+                  borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center',
+                  gap: 5, position: 'relative',
+                }}
+              >
+                <Shield size={14} />
+                {lang === 'ko' ? '관리자' : 'Admin'}
+                {pendingCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: -6,
+                    backgroundColor: '#ef4444', color: '#fff', fontSize: 10,
+                    fontWeight: 700, width: 18, height: 18, borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{pendingCount}</span>
+                )}
+              </button>
+            )}
           </nav>
         </div>
       </header>
@@ -413,10 +565,10 @@ useEffect(() => {
             {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 20 }}>
               {[
-                { label: t.stats.returnLabel, value: `+${latestVIPS}%`, sub: t.stats.returnSub, color: C.green, icon: <TrendingUp size={18} /> },
-                { label: t.stats.alphaLabel, value: `+${alpha}%`, sub: t.stats.alphaSub, color: C.blue, icon: <Zap size={18} /> },
+                { label: t.stats.returnLabel, value: `${latestVIPS > 0 ? '+' : ''}${latestVIPS}%`, sub: t.stats.returnSub, color: latestVIPS >= 0 ? C.green : C.red, icon: <TrendingUp size={18} /> },
+                { label: t.stats.alphaLabel, value: `${Number(alpha) > 0 ? '+' : ''}${alpha}%`, sub: t.stats.alphaSub, color: Number(alpha) >= 0 ? C.blue : C.red, icon: <Zap size={18} /> },
                 { label: t.stats.researchLabel, value: `${activeResearch.length}${lang === "ko" ? "편" : ""}`, sub: t.stats.researchSub, color: C.lightBlue, icon: <BookOpen size={18} /> },
-                { label: t.stats.alumniLabel, value: `${alumniData.length}${lang === "ko" ? "명" : ""}`, sub: t.stats.alumniSub, color: C.navy, icon: <Users size={18} /> },
+                { label: t.stats.alumniLabel, value: `${approvedAlumni.length > 0 ? approvedAlumni.length : alumniData.length}${lang === "ko" ? "명" : ""}`, sub: t.stats.alumniSub, color: C.navy, icon: <Users size={18} /> },
               ].map((stat, i) => (
                 <div key={i} style={{ ...cardStyle, padding: "20px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -440,7 +592,7 @@ useEffect(() => {
                   }}>{t.home.detail} <ChevronRight size={14} /></button>
                 </div>
                 <ResponsiveContainer width="100%" height={190}>
-                  <AreaChart data={fundPerformance}>
+                  <AreaChart data={homeChartData}>
                     <defs>
                       <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={C.blue} stopOpacity={0.2} />
@@ -448,7 +600,8 @@ useEffect(() => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eef0f5" />
-                    <XAxis dataKey="month" tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey={liveMetrics ? "date" : "month"} tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
+                      interval={liveMetrics ? Math.max(0, Math.floor(homeChartData.length / 6)) : undefined} />
                     <YAxis tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
                     <Tooltip content={<CustomTooltip />} />
                     <Area type="monotone" dataKey="vips" stroke={C.blue} strokeWidth={2.5} fill="url(#blueGrad)" name="VIPS" />
@@ -667,64 +820,7 @@ useEffect(() => {
 
         {/* ====== FUND ====== */}
         {activeTab === "fund" && (
-          <div style={{ paddingTop: 32 }}>
-            <h2 style={{ fontSize: 24, margin: "0 0 6px", fontWeight: 800, color: C.navy, display: "flex", alignItems: "center", gap: 8 }}>
-              <TrendingUp size={22} style={{ color: C.blue }} /> {t.fund.title}
-            </h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "0 0 24px" }}>{t.fund.desc}</p>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
-              <div style={{
-                background: C.heroBg, borderRadius: 12, padding: 24, color: "#fff",
-              }}>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginBottom: 4, fontWeight: 500 }}>{t.fund.vipsReturn}</div>
-                <div style={{ fontSize: 34, fontWeight: 800, fontFamily: "'Inter', sans-serif" }}>+{latestVIPS}%</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>{t.fund.period}</div>
-              </div>
-              <div style={{ ...cardStyle, padding: 24 }}>
-                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4, fontWeight: 500 }}>{t.fund.kospiReturn}</div>
-                <div style={{ fontSize: 34, fontWeight: 800, color: C.textSecondary, fontFamily: "'Inter', sans-serif" }}>+{latestKOSPI}%</div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>{t.fund.benchmark}</div>
-              </div>
-              <div style={{ ...cardStyle, padding: 24 }}>
-                <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 4, fontWeight: 500 }}>{t.fund.alpha}</div>
-                <div style={{ fontSize: 34, fontWeight: 800, color: C.green, fontFamily: "'Inter', sans-serif" }}>+{alpha}%</div>
-                <div style={{ fontSize: 11, color: C.textMuted, marginTop: 4 }}>{t.fund.outperform}</div>
-              </div>
-            </div>
-
-            <div style={{ ...cardStyle, padding: 28 }}>
-              <h3 style={{ margin: "0 0 24px", fontSize: 15, fontWeight: 700, color: C.navy }}>{t.fund.chartTitle}</h3>
-              <ResponsiveContainer width="100%" height={360}>
-                <AreaChart data={fundPerformance}>
-                  <defs>
-                    <linearGradient id="navyGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={C.blue} stopOpacity={0.2} />
-                      <stop offset="100%" stopColor={C.blue} stopOpacity={0.02} />
-                    </linearGradient>
-                    <linearGradient id="grayGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#aab0c0" stopOpacity={0.1} />
-                      <stop offset="100%" stopColor="#aab0c0" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#eef0f5" />
-                  <XAxis dataKey="month" tick={{ fill: C.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: C.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, color: C.textSecondary }} />
-                  <Area type="monotone" dataKey="vips" stroke={C.blue} strokeWidth={2.5} fill="url(#navyGrad)" name={t.fund.vipsLabel} />
-                  <Area type="monotone" dataKey="kospi" stroke="#b0b7c8" strokeWidth={1.5} fill="url(#grayGrad)" name={t.fund.kospiLabel} strokeDasharray="6 3" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={{
-              ...cardStyle, marginTop: 14, padding: "16px 20px",
-              borderLeft: `3px solid ${C.blue}`, fontSize: 13, color: C.textSecondary, lineHeight: 1.6,
-            }}>
-              <strong style={{ color: C.navy }}>{t.fund.principle}</strong> — {t.fund.principleText}
-            </div>
-          </div>
+          <FundDashboard lang={lang} />
         )}
 
         {/* ====== ALUMNI ====== */}
@@ -735,54 +831,90 @@ useEffect(() => {
             </h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "0 0 24px" }}>{t.alumni.desc}</p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
-              {[
-                { label: t.alumni.securities, count: 4, icon: "📊" },
-                { label: t.alumni.asset, count: 1, icon: "💰" },
-                { label: t.alumni.consulting, count: 2, icon: "🏦" },
-                { label: t.alumni.grad, count: 1, icon: "🎓" },
-              ].map((s, i) => (
-                <div key={i} style={{ ...cardStyle, padding: "18px 14px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 4 }}>{s.icon}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, fontFamily: "'Inter', sans-serif", color: C.navy }}>{s.count}</div>
-                  <div style={{ fontSize: 11, color: C.textMuted, marginTop: 2 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
+            {/* ===== Alumni 목록: DB 승인된 사람 우선, 없으면 샘플 데이터 ===== */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {alumniData.map((a) => (
-                <div key={a.id} style={{
-                  ...cardStyle, padding: 18, transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.lightBlue + "55"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
-                >
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{
-                      width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-                      background: `linear-gradient(135deg, ${C.blue}18, ${C.lightBlue}10)`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      border: `1px solid ${C.blue}20`, color: C.blue,
-                    }}>
-                      <Users size={18} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                        <span style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>{a.name}</span>
-                        <span style={{ fontSize: 10, color: C.blue, background: `${C.blue}0d`, padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>{a.generation[lang]} ({a.year})</span>
+              {approvedAlumni.length > 0 ? (
+                approvedAlumni.map((a) => (
+                  <div key={a.id} style={{
+                    ...cardStyle, padding: 18, transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.lightBlue + "55"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
+                  >
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 10, flexShrink: 0,
+                        background: `linear-gradient(135deg, ${C.blue}18, ${C.lightBlue}10)`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1px solid ${C.blue}20`, color: C.blue,
+                      }}>
+                        <Users size={18} />
                       </div>
-                      <div style={{ fontSize: 13, color: C.textPrimary, marginBottom: 1, display: "flex", alignItems: "center", gap: 4 }}>
-                        <Briefcase size={11} style={{ color: C.textMuted }} />
-                        {a.current[lang]}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>{a.name}</span>
+                          {a.generation && (
+                            <span style={{ fontSize: 10, color: C.blue, background: `${C.blue}0d`, padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>
+                              {a.generation} ({a.graduation_year})
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, color: C.textPrimary, marginBottom: 1, display: "flex", alignItems: "center", gap: 4 }}>
+                          <Briefcase size={11} style={{ color: C.textMuted }} />
+                          {a.job_role}{a.current_company ? ` @ ${a.current_company}` : ''}
+                        </div>
+                        <div style={{ fontSize: 12, color: C.textMuted }}>{a.major}</div>
+                        {(a.phone || a.linkedin) && (
+                          <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 11, color: C.textMuted }}>
+                            {a.phone && <span>📞 {a.phone}</span>}
+                            {a.linkedin && <span>🔗 {a.linkedin}</span>}
+                          </div>
+                        )}
+                        {a.message && (
+                          <div style={{ fontSize: 12, color: C.textSecondary, marginTop: 6, fontStyle: 'italic' }}>
+                            "{a.message}"
+                          </div>
+                        )}
                       </div>
-                      <div style={{ fontSize: 12, color: C.textMuted }}>{a.role[lang]} · {a.field[lang]}</div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                /* 폴백: 기존 하드코딩 샘플 데이터 */
+                alumniData.map((a) => (
+                  <div key={a.id} style={{
+                    ...cardStyle, padding: 18, transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = C.lightBlue + "55"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
+                  >
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{
+                        width: 42, height: 42, borderRadius: 10, flexShrink: 0,
+                        background: `linear-gradient(135deg, ${C.blue}18, ${C.lightBlue}10)`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `1px solid ${C.blue}20`, color: C.blue,
+                      }}>
+                        <Users size={18} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>{a.name}</span>
+                          <span style={{ fontSize: 10, color: C.blue, background: `${C.blue}0d`, padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>{a.generation[lang]} ({a.year})</span>
+                        </div>
+                        <div style={{ fontSize: 13, color: C.textPrimary, marginBottom: 1, display: "flex", alignItems: "center", gap: 4 }}>
+                          <Briefcase size={11} style={{ color: C.textMuted }} />
+                          {a.current[lang]}
+                        </div>
+                        <div style={{ fontSize: 12, color: C.textMuted }}>{a.role[lang]} · {a.field[lang]}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
+            {/* Alumni 등록 신청 카드 */}
             <div style={{
               ...cardStyle, marginTop: 24, padding: "28px 32px", textAlign: "center",
               background: `linear-gradient(135deg, ${C.blue}08, ${C.lightBlue}05)`,
@@ -791,11 +923,14 @@ useEffect(() => {
               <Mail size={20} style={{ color: C.blue, marginBottom: 8 }} />
               <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: C.navy }}>{t.alumni.registerTitle}</h4>
               <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 14px" }}>{t.alumni.registerDesc}</p>
-              <button style={{
-                background: C.heroBg, color: "#fff", border: "none",
-                padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 700,
-                cursor: "pointer", boxShadow: "0 2px 8px rgba(26,42,94,0.25)",
-              }}>
+              <button
+                onClick={() => setShowAlumniForm(true)}
+                style={{
+                  background: C.heroBg, color: "#fff", border: "none",
+                  padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", boxShadow: "0 2px 8px rgba(26,42,94,0.25)",
+                }}
+              >
                 {t.alumni.registerBtn}
               </button>
             </div>
@@ -819,6 +954,135 @@ useEffect(() => {
           </div>
         </div>
       </footer>
+
+      {/* ===== 로그인 모달 ===== */}
+      {showLoginModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: 20,
+        }} onClick={() => setShowLoginModal(false)}>
+          <div style={{
+            backgroundColor: C.card, borderRadius: 16,
+            border: `1px solid ${C.border}`, padding: 32,
+            width: '100%', maxWidth: 400,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, margin: '0 auto 12px',
+                background: `${C.blue}12`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Shield size={24} color={C.blue} />
+              </div>
+              <h3 style={{ color: C.textPrimary, fontSize: 18, fontWeight: 700, margin: '0 0 4px' }}>
+                {lang === 'ko' ? '관리자 로그인' : 'Admin Login'}
+              </h3>
+              <p style={{ color: C.textMuted, fontSize: 13, margin: 0 }}>
+                {lang === 'ko' ? 'VIPS 관리자 계정으로 로그인하세요' : 'Sign in with your VIPS admin account'}
+              </p>
+            </div>
+
+            {loginError && (
+              <div style={{
+                padding: 10, backgroundColor: 'rgba(220,53,69,0.08)',
+                border: '1px solid rgba(220,53,69,0.2)', borderRadius: 8,
+                color: C.red, fontSize: 13, marginBottom: 16, textAlign: 'center',
+              }}>
+                {loginError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                type="email"
+                placeholder={lang === 'ko' ? '이메일' : 'Email'}
+                value={loginEmail}
+                onChange={e => setLoginEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  backgroundColor: C.bg, border: `1px solid ${C.border}`,
+                  borderRadius: 8, color: C.textPrimary, fontSize: 14,
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <input
+                type="password"
+                placeholder={lang === 'ko' ? '비밀번호' : 'Password'}
+                value={loginPassword}
+                onChange={e => setLoginPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  backgroundColor: C.bg, border: `1px solid ${C.border}`,
+                  borderRadius: 8, color: C.textPrimary, fontSize: 14,
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <button
+                onClick={handleAdminLogin}
+                disabled={loginLoading}
+                style={{
+                  width: '100%', padding: 12, marginTop: 4,
+                  background: loginLoading ? C.border : C.heroBg,
+                  color: '#fff', border: 'none', borderRadius: 8,
+                  fontSize: 15, fontWeight: 700,
+                  cursor: loginLoading ? 'not-allowed' : 'pointer',
+                  boxShadow: loginLoading ? 'none' : '0 2px 8px rgba(26,42,94,0.3)',
+                }}
+              >
+                {loginLoading ? (lang === 'ko' ? '로그인 중...' : 'Signing in...') : (lang === 'ko' ? '로그인' : 'Sign In')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Alumni 신청 폼 모달 ===== */}
+      <AlumniApplicationForm
+        isOpen={showAlumniForm}
+        onClose={() => setShowAlumniForm(false)}
+        colors={colorsForModals}
+      />
+
+      {/* ===== 관리자 패널 모달 ===== */}
+      <AdminPanel
+        isOpen={showAdminPanel}
+        onClose={async () => {
+          setShowAdminPanel(false);
+          // 패널 닫을 때 데이터 새로고침
+          try {
+            const data = await getApprovedAlumni();
+            if (data) setApprovedAlumni(data);
+            const pending = await getAlumniApplications('pending');
+            setPendingCount(pending?.length || 0);
+            // 리서치도 새로고침
+            const { data: resData } = await supabase
+              .from('research')
+              .select('*')
+              .order('created_at', { ascending: false });
+            if (resData && resData.length > 0) {
+              setDbResearch(resData.map(item => ({
+                id: item.id,
+                title: { ko: item.title, en: item.title },
+                author: item.author,
+                date: item.date,
+                category: { ko: item.sector?.replace('IT/Semiconductor', 'IT/반도체').replace('Automotive', '자동차').replace('Internet/Platform', '인터넷/플랫폼').replace('Finance', '금융').replace('Bio/Healthcare', '바이오/헬스케어') || 'IT/반도체', en: item.sector || 'IT/Semiconductor' },
+                rating: item.rating || 'BUY',
+                target: item.target_price || '',
+                summary: { ko: item.summary || '', en: item.summary || '' },
+                pdf_url: item.pdf_url || '',
+              })));
+            }
+          } catch (err) {
+            console.error('Refresh error:', err);
+          }
+        }}
+        onLogout={handleAdminLogout}
+        colors={colorsForModals}
+      />
     </div>
   );
 }
