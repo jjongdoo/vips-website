@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { supabase } from '../../lib/supabase';
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, CartesianGrid, Legend } from "recharts";
 import { Search, TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap } from "lucide-react";
@@ -23,7 +24,7 @@ const texts = {
       chartTitle: "펀드 수익률 추이", detail: "자세히",
       latestResearch: "최신 리서치", viewAll: "전체보기",
       aboutTitle: "About VIPS",
-      aboutText: "VIPS(Value Investment Pioneers)는 숭실대학교 금융학부 소속 가치투자 학회입니다. 벤자민 그레이엄과 워렌 버핏의 가치투자 철학을 바탕으로, 기업의 내재가치를 분석하고 장기적 관점의 투자 전략을 연구합니다. 매 학기 자체 펀드를 운용하며, 정기적으로 리서치 리포트를 발간하고, 금융업계 진출을 위한 커리어 역량을 키워나갑니다. CFA, AICPA 등 금융 자격증 스터디와 현직자 특강, Alumni 네트워킹을 통해 실전 금융 인재를 양성합니다.",
+      aboutText: "VIPS(Value Investment Pioneers)는 숭실대학교 금융학부 소속 가치투자 학회입니다. VIPS는 전통적인 가치 분석을 넘어, 기술의 혁신과 기업의 성장 잠재력을 심도 있게 분석합니다.매 학기 자체 펀드를 운용하며, 정기적으로 리서치 리포트를 발간하고, 금융업계 진출을 위한 커리어 역량을 키워나갑니다. CFA, AICPA 등 금융 자격증 스터디와 현직자 특강, Alumni 네트워킹을 통해 실전 금융 인재를 양성합니다.",
     },
     search: {
       title: "종목 검색",
@@ -152,14 +153,7 @@ const fundPerformance = [
   { month: "25.03", vips: 29.8, kospi: 12.4 },
 ];
 
-const researchReports = [
-  { id: 1, title: { ko: "삼성전자 반도체 사이클 분석", en: "Samsung Electronics Semiconductor Cycle Analysis" }, author: "김민수", date: "2025.03.05", category: { ko: "IT/반도체", en: "IT/Semiconductor" }, rating: "BUY", target: "87,000", summary: { ko: "HBM 수요 증가와 파운드리 수율 개선으로 반도체 업황 회복 전망", en: "Semiconductor recovery expected with HBM demand growth and foundry yield improvement" } },
-  { id: 2, title: { ko: "현대차 EV 전환 전략 점검", en: "Hyundai Motor EV Transition Strategy Review" }, author: "이서연", date: "2025.02.28", category: { ko: "자동차", en: "Automotive" }, rating: "HOLD", target: "265,000", summary: { ko: "아이오닉 라인업 확장과 미국 IRA 보조금 수혜 분석", en: "IONIQ lineup expansion and US IRA subsidy benefit analysis" } },
-  { id: 3, title: { ko: "NAVER 생성형 AI 사업 가치 재평가", en: "NAVER Generative AI Business Revaluation" }, author: "박준혁", date: "2025.02.20", category: { ko: "인터넷/플랫폼", en: "Internet/Platform" }, rating: "BUY", target: "280,000", summary: { ko: "하이퍼클로바X 기반 B2B 솔루션 매출 성장 가속화", en: "HyperCLOVA X-based B2B solution revenue growth acceleration" } },
-  { id: 4, title: { ko: "SK하이닉스 HBM3E 수혜 분석", en: "SK Hynix HBM3E Benefit Analysis" }, author: "최유진", date: "2025.02.15", category: { ko: "IT/반도체", en: "IT/Semiconductor" }, rating: "STRONG BUY", target: "210,000", summary: { ko: "엔비디아향 HBM3E 독점 공급 지위 강화", en: "Strengthening exclusive HBM3E supply position for NVIDIA" } },
-  { id: 5, title: { ko: "카카오뱅크 수익성 개선 시나리오", en: "KakaoBank Profitability Improvement Scenario" }, author: "정하은", date: "2025.02.10", category: { ko: "금융", en: "Finance" }, rating: "BUY", target: "38,000", summary: { ko: "NIM 개선과 플랫폼 수수료 수익 다각화", en: "NIM improvement and platform fee revenue diversification" } },
-  { id: 6, title: { ko: "셀트리온 바이오시밀러 파이프라인 점검", en: "Celltrion Biosimilar Pipeline Review" }, author: "김민수", date: "2025.02.01", category: { ko: "바이오/헬스케어", en: "Bio/Healthcare" }, rating: "BUY", target: "220,000", summary: { ko: "짐펜트라 미국 출시 효과와 신규 바이오시밀러 파이프라인", en: "Zymfentra US launch impact and new biosimilar pipeline" } },
-];
+const researchReports = [];
 
 const alumniData = [
   { id: 1, name: "김OO", generation: { ko: "1기", en: "Gen 1" }, year: "2018", current: { ko: "삼성증권 리서치센터", en: "Samsung Securities Research" }, role: { ko: "애널리스트", en: "Analyst" }, field: { ko: "IT/반도체 섹터", en: "IT/Semiconductor Sector" } },
@@ -226,7 +220,30 @@ export default function VIPSHomepage() {
   const [animateIn, setAnimateIn] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterCategory, setFilterCategory] = useState("전체");
+const [dbResearch, setDbResearch] = useState([]);
 
+useEffect(() => {
+  const fetchResearch = async () => {
+    const { data } = await supabase
+      .from('research')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data && data.length > 0) {
+      setDbResearch(data.map(item => ({
+        id: item.id,
+        title: { ko: item.title, en: item.title },
+        author: item.author,
+        date: item.date,
+        category: { ko: item.sector?.replace('IT/Semiconductor', 'IT/반도체').replace('Automotive', '자동차').replace('Internet/Platform', '인터넷/플랫폼').replace('Finance', '금융').replace('Bio/Healthcare', '바이오/헬스케어') || 'IT/반도체', en: item.sector || 'IT/Semiconductor' },
+        rating: item.rating || 'BUY',
+        target: item.target_price || '',
+        summary: { ko: item.summary || '', en: item.summary || '' },
+        pdf_url: item.pdf_url || '',
+      })));
+    }
+  };
+  fetchResearch();
+}, []);
   const t = texts[lang];
 
   useEffect(() => { setTimeout(() => setAnimateIn(true), 100); }, []);
@@ -239,10 +256,11 @@ export default function VIPSHomepage() {
   const categoriesKo = ["전체", "IT/반도체", "자동차", "인터넷/플랫폼", "금융", "바이오/헬스케어"];
   const categoriesEn = ["All", "IT/Semiconductor", "Automotive", "Internet/Platform", "Finance", "Bio/Healthcare"];
   const categories = lang === "ko" ? categoriesKo : categoriesEn;
+  
+  const activeResearch = dbResearch.length > 0 ? dbResearch : researchReports;
   const filteredReports = (filterCategory === "전체" || filterCategory === "All")
-    ? researchReports
-    : researchReports.filter(r => r.category[lang] === filterCategory);
-
+    ? activeResearch
+    : activeResearch.filter(r => r.category[lang] === filterCategory);
   const latestVIPS = fundPerformance[fundPerformance.length - 1].vips;
   const latestKOSPI = fundPerformance[fundPerformance.length - 1].kospi;
   const alpha = (latestVIPS - latestKOSPI).toFixed(1);
@@ -397,7 +415,7 @@ export default function VIPSHomepage() {
               {[
                 { label: t.stats.returnLabel, value: `+${latestVIPS}%`, sub: t.stats.returnSub, color: C.green, icon: <TrendingUp size={18} /> },
                 { label: t.stats.alphaLabel, value: `+${alpha}%`, sub: t.stats.alphaSub, color: C.blue, icon: <Zap size={18} /> },
-                { label: t.stats.researchLabel, value: `${researchReports.length}${lang === "ko" ? "편" : ""}`, sub: t.stats.researchSub, color: C.lightBlue, icon: <BookOpen size={18} /> },
+                { label: t.stats.researchLabel, value: `${activeResearch.length}${lang === "ko" ? "편" : ""}`, sub: t.stats.researchSub, color: C.lightBlue, icon: <BookOpen size={18} /> },
                 { label: t.stats.alumniLabel, value: `${alumniData.length}${lang === "ko" ? "명" : ""}`, sub: t.stats.alumniSub, color: C.navy, icon: <Users size={18} /> },
               ].map((stat, i) => (
                 <div key={i} style={{ ...cardStyle, padding: "20px 18px" }}>
@@ -448,7 +466,7 @@ export default function VIPSHomepage() {
                   }}>{t.home.viewAll} <ChevronRight size={14} /></button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {researchReports.slice(0, 4).map((r) => (
+                  {activeResearch.slice(0, 4).map((r) => (
                     <div key={r.id} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`,
@@ -605,9 +623,16 @@ export default function VIPSHomepage() {
                   }}>✕</button>
                 </div>
                 <p style={{ color: C.textSecondary, lineHeight: 1.7, marginTop: 14, fontSize: 14 }}>{selectedReport.summary[lang]}</p>
-                <div style={{ marginTop: 14, padding: 14, borderRadius: 8, background: "#f8f9fb", border: `1px solid ${C.border}`, fontSize: 13, color: C.textMuted }}>
-                  📄 {t.research.download}
-                </div>
+                
+                {selectedReport.pdf_url ? (
+                  <a href={selectedReport.pdf_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 14, padding: 14, borderRadius: 8, background: "#f8f9fb", border: `1px solid ${C.border}`, fontSize: 13, color: C.blue, textDecoration: "none", fontWeight: 600 }}>
+                    📄 PDF 다운로드
+                  </a>
+                ) : (
+                  <div style={{ marginTop: 14, padding: 14, borderRadius: 8, background: "#f8f9fb", border: `1px solid ${C.border}`, fontSize: 13, color: C.textMuted }}>
+                    📄 {t.research.download}
+                  </div>
+                )}
               </div>
             )}
 
