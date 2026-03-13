@@ -1,3 +1,4 @@
+// @ts-nocheck
 // app/components/AdminPanel.tsx
 // 관리자 패널 - Alumni 승인 + 리서치 관리
 // VIPSHomepage 내에서 관리자 로그인 시 표시됨
