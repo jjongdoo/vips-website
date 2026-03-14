@@ -1,11 +1,12 @@
 // app/components/FundDashboard.tsx
 // VIPS 펀드 대시보드 - 구글 시트 연동
+// Sharpe Ratio, MDD는 ssuvips.com에 표시하지 않음 (노션 전용)
 // @ts-nocheck
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, Shield, Target, AlertTriangle, RefreshCw, PieChart as PieChartIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, BarChart3, Target, AlertTriangle, RefreshCw, PieChart as PieChartIcon } from 'lucide-react';
 import { fetchDailyPerformance, fetchPortfolio, calculateMetrics, formatKRW } from '../../lib/googleSheets';
 
 // 색상
@@ -104,7 +105,7 @@ export default function FundDashboard({ lang = 'ko' }) {
     );
   }
 
-  // 에러 또는 데이터 없음 → 기존 샘플 데이터 표시 안내
+  // 에러 또는 데이터 없음
   if (error || !metrics) {
     return (
       <div style={{ paddingTop: 32 }}>
@@ -133,7 +134,7 @@ export default function FundDashboard({ lang = 'ko' }) {
   // 포트폴리오 총 가치 (비중 계산용)
   const totalPortfolioValue = filteredPortfolio.reduce((sum, p) => sum + p.value, 0);
 
-  // 파이차트 데이터 (합계 제외)
+  // 파이차트 데이터
   const pieData = filteredPortfolio
     .filter(p => p.value > 0)
     .map(p => ({
@@ -204,8 +205,8 @@ export default function FundDashboard({ lang = 'ko' }) {
         </div>
       </div>
 
-      {/* ===== 세부 지표 4개 (작은 카드) ===== */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
+      {/* ===== 세부 지표 2개 (Sharpe/MDD 제거 → 총자산 + 누적수익금만) ===== */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12, marginBottom: 16 }}>
         {[
           {
             label: isKo ? '총 자산' : 'Total Assets',
@@ -218,18 +219,6 @@ export default function FundDashboard({ lang = 'ko' }) {
             value: `${metrics.cumulativeProfit >= 0 ? '+' : ''}${formatKRW(metrics.cumulativeProfit)}`,
             icon: metrics.cumulativeProfit >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />,
             color: metrics.cumulativeProfit >= 0 ? C.green : C.red,
-          },
-          {
-            label: 'Sharpe Ratio',
-            value: metrics.sharpeRatio.toFixed(2),
-            icon: <Shield size={16} />,
-            color: metrics.sharpeRatio >= 1 ? C.green : metrics.sharpeRatio >= 0.5 ? C.blue : C.textMuted,
-          },
-          {
-            label: 'MDD',
-            value: `-${metrics.mdd.toFixed(1)}%`,
-            icon: <AlertTriangle size={16} />,
-            color: metrics.mdd <= 10 ? C.green : metrics.mdd <= 20 ? C.blue : C.red,
           },
         ].map((item, i) => (
           <div key={i} style={{ ...cardStyle, padding: "16px 14px" }}>
@@ -309,7 +298,7 @@ export default function FundDashboard({ lang = 'ko' }) {
               }}>
                 <div>
                   <div style={{ fontWeight: 600, color: C.textPrimary }}>{p.name}</div>
-                  {p.sector && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>{p.sector}</div>}
+                  {p.code && <div style={{ fontSize: 10, color: C.textMuted, marginTop: 1 }}>{p.code}</div>}
                 </div>
                 <div style={{ textAlign: 'right', fontFamily: "'Inter', sans-serif", color: C.textSecondary }}>
                   {p.avgPrice.toLocaleString('ko-KR')}
