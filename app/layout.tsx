@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: 'OZvEX32WTOAQeaVbXuPoUw-rAHHRcoSNEzAomMvqOOU',
+    other: {
+      'naver-site-verification': 'a76cf095bb2e49090c962675aae99013c84ae3b3',
+    },
   },
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://ssuvips.com' },
