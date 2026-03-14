@@ -7,12 +7,12 @@ import FundDashboard from './FundDashboard';
 import { fetchDailyPerformance, calculateMetrics } from '../../lib/googleSheets';
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart, CartesianGrid, Legend } from "recharts";
-import { Search, TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap, LogIn, Shield } from "lucide-react";
+import { TrendingUp, FileText, Users, BarChart3, ChevronRight, ExternalLink, ArrowUpRight, ArrowDownRight, BookOpen, Award, Briefcase, Mail, Globe, Star, Calendar, Target, Zap, LogIn, Shield, RefreshCw } from "lucide-react";
 
 // --- i18n ---
 const texts = {
   ko: {
-    nav: { home: "홈", search: "종목검색", research: "리서치", fund: "펀드성과", alumni: "Alumni" },
+    nav: { home: "홈", research: "리서치", fund: "펀드성과", alumni: "Alumni" },
     hero: {
       sub: "숭실대학교 가치투자학회",
       tagline: "가치투자의 본질을 탐구하고,\n시장을 이기는 전략을 연구합니다",
@@ -20,7 +20,7 @@ const texts = {
       cta2: "펀드 성과",
     },
     stats: {
-      returnLabel: "누적 수익률", returnSub: "VIPS 펀드 (2024.01~)",
+      returnLabel: "누적 수익률", returnSub: "VIPS 펀드",
       alphaLabel: "초과수익 (α)", alphaSub: "vs KOSPI 벤치마크",
       researchLabel: "발간 리서치", researchSub: "2025년 누적",
       alumniLabel: "Alumni 네트워크", alumniSub: "금융업계 진출",
@@ -30,14 +30,7 @@ const texts = {
       latestResearch: "최신 리서치", viewAll: "전체보기",
       aboutTitle: "About VIPS",
       aboutText: "VIPS(Value Investment Pioneers)는 숭실대학교 금융학부 소속 가치투자 학회입니다. VIPS는 전통적인 가치 분석을 넘어, 기술의 혁신과 기업의 성장 잠재력을 심도 있게 분석합니다.매 학기 자체 펀드를 운용하며, 정기적으로 리서치 리포트를 발간하고, 금융업계 진출을 위한 커리어 역량을 키워나갑니다. CFA, AICPA 등 금융 자격증 스터디와 현직자 특강, Alumni 네트워킹을 통해 실전 금융 인재를 양성합니다.",
-    },
-    search: {
-      title: "종목 검색",
-      desc: "관심 종목의 현재가와 등락률을 확인하세요",
-      placeholder: "종목명 또는 종목코드 입력 (예: 삼성전자, 005930)",
-      resultCount: (q, n) => `"${q}" 검색 결과 ${n}건`,
-      all: "전체 종목",
-      note: "실제 서비스에서는 한국거래소(KRX) API 또는 네이버 금융 데이터를 연동하여 실시간 시세를 제공합니다. 현재는 샘플 데이터입니다.",
+      loading: "데이터 불러오는 중...",
     },
     research: {
       title: "VIPS 리서치",
@@ -49,22 +42,10 @@ const texts = {
     fund: {
       title: "VIPS 펀드 성과",
       desc: "KOSPI 벤치마크 대비 VIPS 펀드 운용 수익률",
-      vipsReturn: "VIPS 펀드 수익률",
-      kospiReturn: "KOSPI 수익률",
-      alpha: "초과수익 (Alpha)",
-      period: "2024.01 ~ 2025.03",
-      benchmark: "동일 기간 벤치마크",
-      outperform: "KOSPI 대비 아웃퍼폼",
-      chartTitle: "누적 수익률 비교 차트",
-      vipsLabel: "VIPS 펀드",
-      kospiLabel: "KOSPI",
-      principle: "운용 원칙",
-      principleText: "VIPS 펀드는 가치투자 원칙에 기반하여 PER, PBR, DCF 등 정량적 밸류에이션과 산업 분석을 통해 저평가 종목에 집중 투자합니다. 포트폴리오는 분기별로 리밸런싱합니다.",
     },
     alumni: {
       title: "Alumni Network",
       desc: "VIPS 출신 동문들의 금융업계 진출 현황",
-      securities: "증권사", asset: "자산운용", consulting: "컨설팅/IB", grad: "대학원",
       registerTitle: "Alumni 등록",
       registerDesc: "VIPS 졸업생이신가요? 동문 네트워크에 등록하고 후배들과 연결되세요.",
       registerBtn: "등록 신청하기",
@@ -75,7 +56,7 @@ const texts = {
     },
   },
   en: {
-    nav: { home: "Home", search: "Stocks", research: "Research", fund: "Fund", alumni: "Alumni" },
+    nav: { home: "Home", research: "Research", fund: "Fund", alumni: "Alumni" },
     hero: {
       sub: "SOONGSIL UNIVERSITY VALUE INVESTING CLUB",
       tagline: "We explore the essence of value investing\nand research strategies to beat the market",
@@ -83,7 +64,7 @@ const texts = {
       cta2: "Fund Performance",
     },
     stats: {
-      returnLabel: "Cumulative Return", returnSub: "VIPS Fund (Jan 2024~)",
+      returnLabel: "Cumulative Return", returnSub: "VIPS Fund",
       alphaLabel: "Excess Return (α)", alphaSub: "vs KOSPI Benchmark",
       researchLabel: "Research Published", researchSub: "2025 YTD",
       alumniLabel: "Alumni Network", alumniSub: "Finance Industry",
@@ -93,14 +74,7 @@ const texts = {
       latestResearch: "Latest Research", viewAll: "View All",
       aboutTitle: "About VIPS",
       aboutText: "VIPS (Value Investment Pioneers) is a value investing club under Soongsil University's Department of Finance. Based on the value investing philosophy of Benjamin Graham and Warren Buffett, we analyze intrinsic value of companies and research long-term investment strategies. Each semester, we manage our own fund, publish research reports regularly, and build career competencies for entering the finance industry. Through CFA and AICPA study groups, industry expert lectures, and alumni networking, we cultivate practical finance professionals.",
-    },
-    search: {
-      title: "Stock Search",
-      desc: "Check current prices and changes of stocks you're interested in",
-      placeholder: "Enter stock name or code (e.g., Samsung Electronics, 005930)",
-      resultCount: (q, n) => `${n} results for "${q}"`,
-      all: "All Stocks",
-      note: "In production, real-time quotes will be provided via KRX API or Naver Finance integration. Currently showing sample data.",
+      loading: "Loading data...",
     },
     research: {
       title: "VIPS Research",
@@ -112,22 +86,10 @@ const texts = {
     fund: {
       title: "VIPS Fund Performance",
       desc: "VIPS fund returns vs KOSPI benchmark",
-      vipsReturn: "VIPS Fund Return",
-      kospiReturn: "KOSPI Return",
-      alpha: "Excess Return (Alpha)",
-      period: "Jan 2024 ~ Mar 2025",
-      benchmark: "Same period benchmark",
-      outperform: "Outperforming KOSPI",
-      chartTitle: "Cumulative Return Comparison",
-      vipsLabel: "VIPS Fund",
-      kospiLabel: "KOSPI",
-      principle: "Investment Principles",
-      principleText: "The VIPS Fund follows value investing principles, concentrating on undervalued stocks identified through quantitative valuation (PER, PBR, DCF) and industry analysis. The portfolio is rebalanced quarterly.",
     },
     alumni: {
       title: "Alumni Network",
       desc: "Career paths of VIPS alumni in the finance industry",
-      securities: "Securities", asset: "Asset Mgmt", consulting: "Consulting/IB", grad: "Grad School",
       registerTitle: "Alumni Registration",
       registerDesc: "Are you a VIPS alumnus? Register and connect with current members.",
       registerBtn: "Register Now",
@@ -139,27 +101,7 @@ const texts = {
   },
 };
 
-// --- DATA ---
-const fundPerformance = [
-  { month: "24.01", vips: 0, kospi: 0 },
-  { month: "24.02", vips: 2.1, kospi: 1.3 },
-  { month: "24.03", vips: 5.4, kospi: 2.8 },
-  { month: "24.04", vips: 3.2, kospi: 1.5 },
-  { month: "24.05", vips: 7.8, kospi: 4.2 },
-  { month: "24.06", vips: 11.2, kospi: 5.1 },
-  { month: "24.07", vips: 9.5, kospi: 3.8 },
-  { month: "24.08", vips: 14.3, kospi: 6.2 },
-  { month: "24.09", vips: 18.1, kospi: 7.5 },
-  { month: "24.10", vips: 16.7, kospi: 8.1 },
-  { month: "24.11", vips: 21.4, kospi: 9.3 },
-  { month: "24.12", vips: 24.6, kospi: 10.2 },
-  { month: "25.01", vips: 22.1, kospi: 8.7 },
-  { month: "25.02", vips: 26.3, kospi: 11.1 },
-  { month: "25.03", vips: 29.8, kospi: 12.4 },
-];
-
-const researchReports = [];
-
+// --- DATA (Alumni 샘플 - DB에 데이터 없을 때 폴백) ---
 const alumniData = [
   { id: 1, name: "김OO", generation: { ko: "1기", en: "Gen 1" }, year: "2018", current: { ko: "삼성증권 리서치센터", en: "Samsung Securities Research" }, role: { ko: "애널리스트", en: "Analyst" }, field: { ko: "IT/반도체 섹터", en: "IT/Semiconductor Sector" } },
   { id: 2, name: "이OO", generation: { ko: "1기", en: "Gen 1" }, year: "2018", current: { ko: "맥킨지 서울 오피스", en: "McKinsey Seoul" }, role: { ko: "경영 컨설턴트", en: "Management Consultant" }, field: { ko: "전략 컨설팅", en: "Strategy Consulting" } },
@@ -169,19 +111,6 @@ const alumniData = [
   { id: 6, name: "한OO", generation: { ko: "3기", en: "Gen 3" }, year: "2020", current: { ko: "서울대 경영대학원", en: "SNU Business School" }, role: { ko: "석사과정", en: "Master's Program" }, field: { ko: "재무관리 전공", en: "Finance Major" } },
   { id: 7, name: "윤OO", generation: { ko: "4기", en: "Gen 4" }, year: "2021", current: { ko: "NH투자증권", en: "NH Investment & Securities" }, role: { ko: "리서치 인턴", en: "Research Intern" }, field: { ko: "소비재 섹터", en: "Consumer Sector" } },
   { id: 8, name: "조OO", generation: { ko: "5기", en: "Gen 5" }, year: "2022", current: { ko: "한국투자증권", en: "Korea Investment & Securities" }, role: { ko: "트레이더", en: "Trader" }, field: { ko: "채권 트레이딩", en: "Bond Trading" } },
-];
-
-const stockSearchData = [
-  { name: { ko: "삼성전자", en: "Samsung Elec." }, code: "005930", price: "72,400", change: "+1.8%", up: true },
-  { name: { ko: "SK하이닉스", en: "SK Hynix" }, code: "000660", price: "178,500", change: "+3.2%", up: true },
-  { name: { ko: "현대차", en: "Hyundai Motor" }, code: "005380", price: "248,000", change: "-0.5%", up: false },
-  { name: { ko: "NAVER", en: "NAVER" }, code: "035420", price: "231,500", change: "+2.1%", up: true },
-  { name: { ko: "카카오", en: "Kakao" }, code: "035720", price: "47,850", change: "-1.2%", up: false },
-  { name: { ko: "LG에너지솔루션", en: "LG Energy Sol." }, code: "373220", price: "368,000", change: "+0.8%", up: true },
-  { name: { ko: "셀트리온", en: "Celltrion" }, code: "068270", price: "198,500", change: "+1.5%", up: true },
-  { name: { ko: "삼성SDI", en: "Samsung SDI" }, code: "006400", price: "385,000", change: "-0.3%", up: false },
-  { name: { ko: "카카오뱅크", en: "KakaoBank" }, code: "323410", price: "29,350", change: "+2.5%", up: true },
-  { name: { ko: "포스코홀딩스", en: "POSCO Holdings" }, code: "005490", price: "312,500", change: "+0.7%", up: true },
 ];
 
 // --- COLORS ---
@@ -201,7 +130,6 @@ const C = {
   heroBg: "linear-gradient(135deg, #1a2a5e 0%, #2c4ea3 50%, #4a7ae5 100%)",
 };
 
-// AdminPanel과 AlumniApplicationForm에 전달할 colors 매핑
 const colorsForModals = {
   primary: C.blue,
   bg: C.bg,
@@ -232,34 +160,28 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function VIPSHomepage() {
   const [lang, setLang] = useState("ko");
   const [activeTab, setActiveTab] = useState("home");
-  const [searchQuery, setSearchQuery] = useState("");
   const [animateIn, setAnimateIn] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [filterCategory, setFilterCategory] = useState("전체");
   const [dbResearch, setDbResearch] = useState([]);
 
-  // ===== 관리자 로그인 상태 =====
+  // 관리자
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
-
-  // ===== 관리자 패널 =====
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-  // ===== Alumni 신청 폼 =====
   const [showAlumniForm, setShowAlumniForm] = useState(false);
-
-  // ===== Alumni DB 데이터 =====
   const [approvedAlumni, setApprovedAlumni] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
 
-  // ===== 구글 시트 펀드 데이터 (홈 탭용) =====
+  // 구글 시트 펀드 데이터
   const [liveMetrics, setLiveMetrics] = useState(null);
+  const [fundLoading, setFundLoading] = useState(true);
 
-  // 리서치 DB 로드
+  // 리서치 DB
   useEffect(() => {
     const fetchResearch = async () => {
       const { data } = await supabase
@@ -283,7 +205,7 @@ export default function VIPSHomepage() {
     fetchResearch();
   }, []);
 
-  // ===== 관리자 세션 확인 (페이지 로드 시) =====
+  // 관리자 세션
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -300,14 +222,12 @@ export default function VIPSHomepage() {
     checkSession();
   }, []);
 
-  // ===== 승인된 Alumni 로드 =====
+  // Alumni
   useEffect(() => {
     const loadAlumni = async () => {
       try {
         const data = await getApprovedAlumni();
-        if (data && data.length > 0) {
-          setApprovedAlumni(data);
-        }
+        if (data && data.length > 0) setApprovedAlumni(data);
       } catch (err) {
         console.error('Failed to load alumni:', err);
       }
@@ -315,19 +235,20 @@ export default function VIPSHomepage() {
     loadAlumni();
   }, []);
 
-  // ===== 구글 시트 펀드 데이터 로드 (홈 탭용) =====
+  // 구글 시트 펀드 데이터 (홈 탭용)
   useEffect(() => {
     const loadFundData = async () => {
+      setFundLoading(true);
       try {
         const dailyData = await fetchDailyPerformance();
-        console.log('📊 Fund data loaded:', dailyData?.length, 'rows');
         if (dailyData && dailyData.length >= 1) {
           const metrics = calculateMetrics(dailyData);
-          console.log('📊 Metrics:', metrics);
           setLiveMetrics(metrics);
         }
       } catch (err) {
         console.error('Failed to load fund data:', err);
+      } finally {
+        setFundLoading(false);
       }
     };
     loadFundData();
@@ -338,7 +259,7 @@ export default function VIPSHomepage() {
   useEffect(() => { setTimeout(() => setAnimateIn(true), 100); }, []);
   useEffect(() => { setAnimateIn(false); setTimeout(() => setAnimateIn(true), 50); }, [activeTab]);
 
-  // ===== 관리자 로그인/로그아웃 =====
+  // 관리자 로그인
   const handleAdminLogin = async () => {
     setLoginLoading(true);
     setLoginError('');
@@ -362,26 +283,24 @@ export default function VIPSHomepage() {
     setPendingCount(0);
   };
 
-  const filteredStocks = stockSearchData.filter(
-    (s) => s.name[lang].toLowerCase().includes(searchQuery.toLowerCase()) || s.code.includes(searchQuery)
-  );
-
   const categoriesKo = ["전체", "IT/반도체", "자동차", "인터넷/플랫폼", "금융", "바이오/헬스케어"];
   const categoriesEn = ["All", "IT/Semiconductor", "Automotive", "Internet/Platform", "Finance", "Bio/Healthcare"];
   const categories = lang === "ko" ? categoriesKo : categoriesEn;
-  
-  const activeResearch = dbResearch.length > 0 ? dbResearch : researchReports;
+
+  const activeResearch = dbResearch.length > 0 ? dbResearch : [];
   const filteredReports = (filterCategory === "전체" || filterCategory === "All")
     ? activeResearch
     : activeResearch.filter(r => r.category[lang] === filterCategory);
-  const latestVIPS = liveMetrics ? liveMetrics.vipsReturn : fundPerformance[fundPerformance.length - 1].vips;
-  const latestKOSPI = liveMetrics ? liveMetrics.kospiReturn : fundPerformance[fundPerformance.length - 1].kospi;
-  const alpha = liveMetrics ? liveMetrics.alpha.toFixed(1) : (latestVIPS - latestKOSPI).toFixed(1);
-  const homeChartData = liveMetrics && liveMetrics.chartData.length > 0 ? liveMetrics.chartData : fundPerformance;
 
+  // ===== 홈 탭 데이터: 로딩 중이면 null, 로드 완료 후 실제 값 =====
+  const latestVIPS = liveMetrics ? liveMetrics.vipsReturn : null;
+  const latestKOSPI = liveMetrics ? liveMetrics.kospiReturn : null;
+  const alpha = liveMetrics ? liveMetrics.alpha : null;
+  const homeChartData = liveMetrics && liveMetrics.chartData.length > 0 ? liveMetrics.chartData : [];
+
+  // 네비 (종목검색 제거)
   const navItems = [
     { id: "home", label: t.nav.home, icon: <Star size={15} /> },
-    { id: "search", label: t.nav.search, icon: <Search size={15} /> },
     { id: "research", label: t.nav.research, icon: <FileText size={15} /> },
     { id: "fund", label: t.nav.fund, icon: <BarChart3 size={15} /> },
     { id: "alumni", label: t.nav.alumni, icon: <Users size={15} /> },
@@ -407,6 +326,16 @@ export default function VIPSHomepage() {
     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   };
 
+  // ===== 숫자 표시 헬퍼 (null이면 "-" 표시) =====
+  const displayReturn = (val) => {
+    if (val === null || val === undefined) return '-';
+    return `${val > 0 ? '+' : ''}${val}%`;
+  };
+  const displayColor = (val, positiveColor, negativeColor) => {
+    if (val === null || val === undefined) return C.textMuted;
+    return val >= 0 ? positiveColor : negativeColor;
+  };
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -429,7 +358,6 @@ export default function VIPSHomepage() {
         borderBottom: `1px solid ${C.border}`,
       }}>
         <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, padding: "0 24px" }}>
-          {/* Logo */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setActiveTab("home")}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 0 }}>
               <span style={{ fontFamily: "'Inter', sans-serif", fontWeight: 900, fontSize: 26, color: C.navy, letterSpacing: -1, lineHeight: 1 }}>VIP</span>
@@ -439,7 +367,6 @@ export default function VIPSHomepage() {
             <span style={{ fontSize: 10, color: C.textMuted, letterSpacing: 0.5, lineHeight: 1.2 }}>Value Investment<br />Pioneers</span>
           </div>
 
-          {/* Nav */}
           <nav style={{ display: "flex", alignItems: "center", gap: 2 }}>
             {navItems.map((item) => (
               <button key={item.id} onClick={() => { setActiveTab(item.id); setSelectedReport(null); setFilterCategory(lang === "ko" ? "전체" : "All"); }}
@@ -455,7 +382,6 @@ export default function VIPSHomepage() {
                 <span>{item.label}</span>
               </button>
             ))}
-            {/* Lang Toggle */}
             <div style={{ marginLeft: 8, display: "flex", alignItems: "center", background: "#f0f2f5", borderRadius: 8, padding: 2 }}>
               {["ko", "en"].map(l => (
                 <button key={l} onClick={() => { setLang(l); setFilterCategory(l === "ko" ? "전체" : "All"); }}
@@ -471,31 +397,20 @@ export default function VIPSHomepage() {
               ))}
             </div>
 
-            {/* ===== 관리자 로그인/버튼 ===== */}
             {!isAdmin ? (
-              <button
-                onClick={() => setShowLoginModal(true)}
-                style={{
-                  background: 'none', border: 'none', color: C.textMuted,
-                  cursor: 'pointer', padding: '6px', marginLeft: 6, opacity: 0.4,
-                }}
-                title="관리자 로그인"
-              >
+              <button onClick={() => setShowLoginModal(true)}
+                style={{ background: 'none', border: 'none', color: C.textMuted, cursor: 'pointer', padding: '6px', marginLeft: 6, opacity: 0.4 }}
+                title="관리자 로그인">
                 <LogIn size={16} />
               </button>
             ) : (
-              <button
-                onClick={() => setShowAdminPanel(true)}
+              <button onClick={() => setShowAdminPanel(true)}
                 style={{
-                  padding: '6px 14px', marginLeft: 8,
-                  backgroundColor: `${C.blue}15`,
-                  color: C.blue,
-                  border: `1px solid ${C.blue}33`,
-                  borderRadius: 8, fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center',
-                  gap: 5, position: 'relative',
-                }}
-              >
+                  padding: '6px 14px', marginLeft: 8, backgroundColor: `${C.blue}15`,
+                  color: C.blue, border: `1px solid ${C.blue}33`, borderRadius: 8,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', gap: 5, position: 'relative',
+                }}>
                 <Shield size={14} />
                 {lang === 'ko' ? '관리자' : 'Admin'}
                 {pendingCount > 0 && (
@@ -562,13 +477,37 @@ export default function VIPSHomepage() {
               </div>
             </div>
 
-            {/* Stats */}
+            {/* Stats - 로딩 중이면 "-" 표시, 하드코딩 데이터 없음 */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 20 }}>
               {[
-                { label: t.stats.returnLabel, value: `${latestVIPS > 0 ? '+' : ''}${latestVIPS}%`, sub: t.stats.returnSub, color: latestVIPS >= 0 ? C.green : C.red, icon: <TrendingUp size={18} /> },
-                { label: t.stats.alphaLabel, value: `${Number(alpha) > 0 ? '+' : ''}${alpha}%`, sub: t.stats.alphaSub, color: Number(alpha) >= 0 ? C.blue : C.red, icon: <Zap size={18} /> },
-                { label: t.stats.researchLabel, value: `${activeResearch.length}${lang === "ko" ? "편" : ""}`, sub: t.stats.researchSub, color: C.lightBlue, icon: <BookOpen size={18} /> },
-                { label: t.stats.alumniLabel, value: `${approvedAlumni.length > 0 ? approvedAlumni.length : alumniData.length}${lang === "ko" ? "명" : ""}`, sub: t.stats.alumniSub, color: C.navy, icon: <Users size={18} /> },
+                {
+                  label: t.stats.returnLabel,
+                  value: fundLoading ? '-' : displayReturn(latestVIPS),
+                  sub: t.stats.returnSub,
+                  color: fundLoading ? C.textMuted : displayColor(latestVIPS, C.green, C.red),
+                  icon: <TrendingUp size={18} />,
+                },
+                {
+                  label: t.stats.alphaLabel,
+                  value: fundLoading ? '-' : displayReturn(alpha),
+                  sub: t.stats.alphaSub,
+                  color: fundLoading ? C.textMuted : displayColor(alpha, C.blue, C.red),
+                  icon: <Zap size={18} />,
+                },
+                {
+                  label: t.stats.researchLabel,
+                  value: `${activeResearch.length}${lang === "ko" ? "편" : ""}`,
+                  sub: t.stats.researchSub,
+                  color: C.lightBlue,
+                  icon: <BookOpen size={18} />,
+                },
+                {
+                  label: t.stats.alumniLabel,
+                  value: `${approvedAlumni.length > 0 ? approvedAlumni.length : alumniData.length}${lang === "ko" ? "명" : ""}`,
+                  sub: t.stats.alumniSub,
+                  color: C.navy,
+                  icon: <Users size={18} />,
+                },
               ].map((stat, i) => (
                 <div key={i} style={{ ...cardStyle, padding: "20px 18px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -591,23 +530,39 @@ export default function VIPSHomepage() {
                     fontSize: 12, display: "flex", alignItems: "center", gap: 3, fontWeight: 500,
                   }}>{t.home.detail} <ChevronRight size={14} /></button>
                 </div>
-                <ResponsiveContainer width="100%" height={190}>
-                  <AreaChart data={homeChartData}>
-                    <defs>
-                      <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={C.blue} stopOpacity={0.2} />
-                        <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f5" />
-                    <XAxis dataKey={liveMetrics ? "date" : "month"} tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
-                      interval={liveMetrics ? Math.max(0, Math.floor(homeChartData.length / 6)) : undefined} />
-                    <YAxis tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="vips" stroke={C.blue} strokeWidth={2.5} fill="url(#blueGrad)" name="VIPS" />
-                    <Line type="monotone" dataKey="kospi" stroke="#c0c7d4" strokeWidth={1.5} strokeDasharray="5 3" name="KOSPI" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {fundLoading ? (
+                  <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <RefreshCw size={20} color={C.textMuted} style={{ animation: 'spin 1s linear infinite' }} />
+                      <p style={{ color: C.textMuted, fontSize: 12, marginTop: 8 }}>{t.home.loading}</p>
+                      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  </div>
+                ) : homeChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={190}>
+                    <AreaChart data={homeChartData}>
+                      <defs>
+                        <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={C.blue} stopOpacity={0.2} />
+                          <stop offset="100%" stopColor={C.blue} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eef0f5" />
+                      <XAxis dataKey="date" tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false}
+                        interval={Math.max(0, Math.floor(homeChartData.length / 6))} />
+                      <YAxis tick={{ fill: C.textMuted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area type="monotone" dataKey="vips" stroke={C.blue} strokeWidth={2.5} fill="url(#blueGrad)" name="VIPS" />
+                      <Line type="monotone" dataKey="kospi" stroke="#c0c7d4" strokeWidth={1.5} strokeDasharray="5 3" name="KOSPI" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: 190, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <p style={{ color: C.textMuted, fontSize: 13 }}>
+                      {lang === 'ko' ? '데이터가 쌓이면 차트가 표시됩니다.' : 'Chart will appear as data accumulates.'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div style={{ ...cardStyle, padding: 24 }}>
@@ -619,7 +574,7 @@ export default function VIPSHomepage() {
                   }}>{t.home.viewAll} <ChevronRight size={14} /></button>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {activeResearch.slice(0, 4).map((r) => (
+                  {activeResearch.length > 0 ? activeResearch.slice(0, 4).map((r) => (
                     <div key={r.id} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                       padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`,
@@ -638,7 +593,11 @@ export default function VIPSHomepage() {
                         background: ratingBg(r.rating), padding: "3px 8px", borderRadius: 4, flexShrink: 0, marginLeft: 8,
                       }}>{r.rating}</span>
                     </div>
-                  ))}
+                  )) : (
+                    <div style={{ padding: 20, textAlign: 'center', color: C.textMuted, fontSize: 13 }}>
+                      {lang === 'ko' ? '등록된 리서치가 없습니다.' : 'No research reports yet.'}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -652,82 +611,6 @@ export default function VIPSHomepage() {
               <p style={{ color: C.textSecondary, lineHeight: 1.8, fontSize: 14, margin: 0 }}>
                 {t.home.aboutText}
               </p>
-            </div>
-          </div>
-        )}
-
-        {/* ====== STOCK SEARCH ====== */}
-        {activeTab === "search" && (
-          <div style={{ paddingTop: 32 }}>
-            <h2 style={{ fontSize: 24, margin: "0 0 6px", fontWeight: 800, color: C.navy }}>{t.search.title}</h2>
-            <p style={{ color: C.textMuted, fontSize: 14, margin: "0 0 24px" }}>{t.search.desc}</p>
-
-            <div style={{ position: "relative", marginBottom: 24 }}>
-              <Search size={18} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: C.textMuted }} />
-              <input type="text" placeholder={t.search.placeholder} value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%", padding: "13px 16px 13px 42px", fontSize: 14,
-                  background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10,
-                  color: C.textPrimary, outline: "none", transition: "border-color 0.2s",
-                }}
-                onFocus={e => e.target.style.borderColor = C.lightBlue}
-                onBlur={e => e.target.style.borderColor = C.border}
-              />
-            </div>
-
-            <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 10, fontWeight: 500 }}>
-              {searchQuery ? t.search.resultCount(searchQuery, filteredStocks.length) : t.search.all}
-            </div>
-
-            <div style={{ ...cardStyle, overflow: "hidden" }}>
-              <div style={{
-                display: "grid", gridTemplateColumns: "1fr 110px 100px 50px",
-                padding: "10px 20px", borderBottom: `1px solid ${C.border}`,
-                background: "#f8f9fb", fontSize: 11, fontWeight: 600, color: C.textMuted, textTransform: "uppercase", letterSpacing: 0.5,
-              }}>
-                <span>{lang === "ko" ? "종목명" : "Stock"}</span>
-                <span>{lang === "ko" ? "현재가" : "Price"}</span>
-                <span>{lang === "ko" ? "등락률" : "Change"}</span>
-                <span></span>
-              </div>
-              {filteredStocks.map((stock, i) => (
-                <div key={i} style={{
-                  display: "grid", gridTemplateColumns: "1fr 110px 100px 50px", alignItems: "center",
-                  padding: "14px 20px", borderBottom: i < filteredStocks.length - 1 ? `1px solid ${C.border}` : "none",
-                  cursor: "pointer", transition: "background 0.12s",
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "#f4f6fa"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                >
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{stock.name[lang]}</div>
-                    <div style={{ fontSize: 11, color: C.textMuted, marginTop: 1 }}>{stock.code}</div>
-                  </div>
-                  <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600, fontSize: 14 }}>
-                    ₩{stock.price}
-                  </div>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 3,
-                    color: stock.up ? C.green : C.red, fontWeight: 600, fontSize: 13,
-                    fontFamily: "'Inter', sans-serif",
-                  }}>
-                    {stock.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                    {stock.change}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <ExternalLink size={13} style={{ color: C.textMuted }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{
-              ...cardStyle, marginTop: 16, padding: "14px 18px",
-              borderLeft: `3px solid ${C.lightBlue}`,
-              fontSize: 13, color: C.textSecondary, lineHeight: 1.6,
-            }}>
-              💡 {t.search.note}
             </div>
           </div>
         )}
@@ -776,7 +659,7 @@ export default function VIPSHomepage() {
                   }}>✕</button>
                 </div>
                 <p style={{ color: C.textSecondary, lineHeight: 1.7, marginTop: 14, fontSize: 14 }}>{selectedReport.summary[lang]}</p>
-                
+
                 {selectedReport.pdf_url ? (
                   <a href={selectedReport.pdf_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginTop: 14, padding: 14, borderRadius: 8, background: "#f8f9fb", border: `1px solid ${C.border}`, fontSize: 13, color: C.blue, textDecoration: "none", fontWeight: 600 }}>
                     📄 PDF 다운로드
@@ -831,13 +714,10 @@ export default function VIPSHomepage() {
             </h2>
             <p style={{ color: C.textMuted, fontSize: 14, margin: "0 0 24px" }}>{t.alumni.desc}</p>
 
-            {/* ===== Alumni 목록: DB 승인된 사람 우선, 없으면 샘플 데이터 ===== */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {approvedAlumni.length > 0 ? (
                 approvedAlumni.map((a) => (
-                  <div key={a.id} style={{
-                    ...cardStyle, padding: 18, transition: "all 0.15s",
-                  }}
+                  <div key={a.id} style={{ ...cardStyle, padding: 18, transition: "all 0.15s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.lightBlue + "55"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
                   >
@@ -880,11 +760,8 @@ export default function VIPSHomepage() {
                   </div>
                 ))
               ) : (
-                /* 폴백: 기존 하드코딩 샘플 데이터 */
                 alumniData.map((a) => (
-                  <div key={a.id} style={{
-                    ...cardStyle, padding: 18, transition: "all 0.15s",
-                  }}
+                  <div key={a.id} style={{ ...cardStyle, padding: 18, transition: "all 0.15s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = C.lightBlue + "55"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.06)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)"; }}
                   >
@@ -914,7 +791,6 @@ export default function VIPSHomepage() {
               )}
             </div>
 
-            {/* Alumni 등록 신청 카드 */}
             <div style={{
               ...cardStyle, marginTop: 24, padding: "28px 32px", textAlign: "center",
               background: `linear-gradient(135deg, ${C.blue}08, ${C.lightBlue}05)`,
@@ -923,14 +799,12 @@ export default function VIPSHomepage() {
               <Mail size={20} style={{ color: C.blue, marginBottom: 8 }} />
               <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 700, color: C.navy }}>{t.alumni.registerTitle}</h4>
               <p style={{ fontSize: 13, color: C.textMuted, margin: "0 0 14px" }}>{t.alumni.registerDesc}</p>
-              <button
-                onClick={() => setShowAlumniForm(true)}
+              <button onClick={() => setShowAlumniForm(true)}
                 style={{
                   background: C.heroBg, color: "#fff", border: "none",
                   padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 700,
                   cursor: "pointer", boxShadow: "0 2px 8px rgba(26,42,94,0.25)",
-                }}
-              >
+                }}>
                 {t.alumni.registerBtn}
               </button>
             </div>
@@ -995,35 +869,23 @@ export default function VIPSHomepage() {
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input
-                type="email"
-                placeholder={lang === 'ko' ? '이메일' : 'Email'}
-                value={loginEmail}
+              <input type="email" placeholder={lang === 'ko' ? '이메일' : 'Email'} value={loginEmail}
                 onChange={e => setLoginEmail(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
                 style={{
-                  width: '100%', padding: '11px 14px',
-                  backgroundColor: C.bg, border: `1px solid ${C.border}`,
-                  borderRadius: 8, color: C.textPrimary, fontSize: 14,
-                  outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              <input
-                type="password"
-                placeholder={lang === 'ko' ? '비밀번호' : 'Password'}
-                value={loginPassword}
+                  width: '100%', padding: '11px 14px', backgroundColor: C.bg,
+                  border: `1px solid ${C.border}`, borderRadius: 8, color: C.textPrimary,
+                  fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                }} />
+              <input type="password" placeholder={lang === 'ko' ? '비밀번호' : 'Password'} value={loginPassword}
                 onChange={e => setLoginPassword(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
                 style={{
-                  width: '100%', padding: '11px 14px',
-                  backgroundColor: C.bg, border: `1px solid ${C.border}`,
-                  borderRadius: 8, color: C.textPrimary, fontSize: 14,
-                  outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              <button
-                onClick={handleAdminLogin}
-                disabled={loginLoading}
+                  width: '100%', padding: '11px 14px', backgroundColor: C.bg,
+                  border: `1px solid ${C.border}`, borderRadius: 8, color: C.textPrimary,
+                  fontSize: 14, outline: 'none', boxSizing: 'border-box',
+                }} />
+              <button onClick={handleAdminLogin} disabled={loginLoading}
                 style={{
                   width: '100%', padding: 12, marginTop: 4,
                   background: loginLoading ? C.border : C.heroBg,
@@ -1031,8 +893,7 @@ export default function VIPSHomepage() {
                   fontSize: 15, fontWeight: 700,
                   cursor: loginLoading ? 'not-allowed' : 'pointer',
                   boxShadow: loginLoading ? 'none' : '0 2px 8px rgba(26,42,94,0.3)',
-                }}
-              >
+                }}>
                 {loginLoading ? (lang === 'ko' ? '로그인 중...' : 'Signing in...') : (lang === 'ko' ? '로그인' : 'Sign In')}
               </button>
             </div>
@@ -1052,13 +913,11 @@ export default function VIPSHomepage() {
         isOpen={showAdminPanel}
         onClose={async () => {
           setShowAdminPanel(false);
-          // 패널 닫을 때 데이터 새로고침
           try {
             const data = await getApprovedAlumni();
             if (data) setApprovedAlumni(data);
             const pending = await getAlumniApplications('pending');
             setPendingCount(pending?.length || 0);
-            // 리서치도 새로고침
             const { data: resData } = await supabase
               .from('research')
               .select('*')
