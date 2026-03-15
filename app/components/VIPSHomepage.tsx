@@ -198,19 +198,25 @@ export default function VIPSHomepage() {
           </button>
         </div>
 
-        {/* 모바일 풀스크린 메뉴 */}
-        {mobileMenuOpen && (
-          <div style={{ position:"fixed",top:60,left:0,right:0,bottom:0,background:"#ffffff",display:"flex",flexDirection:"column",padding:"20px 24px",zIndex:9999,animation:"slideDown 0.25s ease-out",boxShadow:"0 4px 20px rgba(0,0,0,0.1)" }}>
-            {navItems.map(item => (<button key={item.id} onClick={() => handleTabChange(item.id)} style={{ background:activeTab===item.id?`${C.blue}0d`:"transparent",border:"none",color:activeTab===item.id?C.blue:C.textSecondary,padding:"14px 16px",borderRadius:10,cursor:"pointer",fontSize:16,fontWeight:activeTab===item.id?700:500,display:"flex",alignItems:"center",gap:10,textAlign:"left",width:"100%" }}>{item.icon}<span>{item.label}</span></button>))}
-            <div style={{ borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:16,display:"flex",alignItems:"center",gap:8 }}>
-              <div style={{ display:"flex",background:"#f0f2f5",borderRadius:8,padding:2 }}>
-                {["ko","en"].map(l => (<button key={l} onClick={() => {setLang(l);setFilterCategory(l==="ko"?"전체":"All");}} style={{ background:lang===l?"#fff":"transparent",border:"none",color:lang===l?C.navy:C.textMuted,padding:"6px 14px",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:600,boxShadow:lang===l?"0 1px 3px rgba(0,0,0,0.08)":"none" }}>{l==="ko"?"한국어":"EN"}</button>))}
-              </div>
-              {!isAdmin ? (<button onClick={() => {setShowLoginModal(true);setMobileMenuOpen(false);}} style={{ background:'none',border:'none',color:C.textMuted,cursor:'pointer',padding:'6px',opacity:0.4 }}><LogIn size={18}/></button>) : (<button onClick={() => {setShowAdminPanel(true);setMobileMenuOpen(false);}} style={{ padding:'6px 14px',backgroundColor:`${C.blue}15`,color:C.blue,border:`1px solid ${C.blue}33`,borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}><Shield size={14}/>{lang==='ko'?'관리자':'Admin'}</button>)}
-            </div>
-          </div>
-        )}
       </header>
+
+      {/* 모바일 풀스크린 메뉴 - header 바깥에 위치해야 stacking context 문제 없음 */}
+      {mobileMenuOpen && (
+        <div style={{ position:"fixed",top:0,left:0,right:0,bottom:0,background:"#ffffff",display:"flex",flexDirection:"column",paddingTop:70,paddingLeft:24,paddingRight:24,paddingBottom:24,zIndex:9999 }}>
+          <button onClick={() => setMobileMenuOpen(false)} style={{ position:"absolute",top:18,right:16,background:"none",border:"none",cursor:"pointer",color:C.navy,padding:6 }}><X size={24}/></button>
+          <div style={{ display:"flex",alignItems:"baseline",marginBottom:24 }}>
+            <span style={{ fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:26,color:C.navy,letterSpacing:-1 }}>VIP</span>
+            <span style={{ fontFamily:"'Inter',sans-serif",fontWeight:900,fontSize:20,color:C.lightBlue,letterSpacing:-1 }}>s</span>
+          </div>
+          {navItems.map(item => (<button key={item.id} onClick={() => handleTabChange(item.id)} style={{ background:activeTab===item.id?`${C.blue}0d`:"transparent",border:"none",color:activeTab===item.id?C.blue:C.textSecondary,padding:"14px 16px",borderRadius:10,cursor:"pointer",fontSize:16,fontWeight:activeTab===item.id?700:500,display:"flex",alignItems:"center",gap:10,textAlign:"left",width:"100%" }}>{item.icon}<span>{item.label}</span></button>))}
+          <div style={{ borderTop:`1px solid ${C.border}`,marginTop:16,paddingTop:16,display:"flex",alignItems:"center",gap:8 }}>
+            <div style={{ display:"flex",background:"#f0f2f5",borderRadius:8,padding:2 }}>
+              {["ko","en"].map(l => (<button key={l} onClick={() => {setLang(l);setFilterCategory(l==="ko"?"전체":"All");}} style={{ background:lang===l?"#fff":"transparent",border:"none",color:lang===l?C.navy:C.textMuted,padding:"6px 14px",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:600,boxShadow:lang===l?"0 1px 3px rgba(0,0,0,0.08)":"none" }}>{l==="ko"?"한국어":"EN"}</button>))}
+            </div>
+            {!isAdmin ? (<button onClick={() => {setShowLoginModal(true);setMobileMenuOpen(false);}} style={{ background:'none',border:'none',color:C.textMuted,cursor:'pointer',padding:'6px',opacity:0.4 }}><LogIn size={18}/></button>) : (<button onClick={() => {setShowAdminPanel(true);setMobileMenuOpen(false);}} style={{ padding:'6px 14px',backgroundColor:`${C.blue}15`,color:C.blue,border:`1px solid ${C.blue}33`,borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:5 }}><Shield size={14}/>{lang==='ko'?'관리자':'Admin'}</button>)}
+          </div>
+        </div>
+      )}
 
       {/* MAIN */}
       <main className="vips-main" style={{ maxWidth:1120,margin:"0 auto",padding:"0 24px 80px",opacity:animateIn?1:0,transform:animateIn?"translateY(0)":"translateY(10px)",transition:"all 0.45s cubic-bezier(0.22,1,0.36,1)" }}>
